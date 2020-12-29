@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.HashMap;
 import java.util.Map;
 
+@SuppressWarnings({"unchecked", "rawtypes"})
 public abstract class VHBridge<VH extends VHolder> {
     protected String TAG = RvLog.RV_LOG_TAG + "-" + getClass().getSimpleName();
     private Map<String, Object> mExtraMap;
@@ -65,7 +66,11 @@ public abstract class VHBridge<VH extends VHolder> {
     }
 
     protected @NonNull <V> V get(@NonNull String key) {
-        return (V) mExtraMap.get(key);
+        V value = (V) mExtraMap.get(key);
+        if (value == null) {
+            throw new RuntimeException("The value from mExtraMap is null");
+        }
+        return value;
     }
 
     protected VHAdapter getAdapter() {

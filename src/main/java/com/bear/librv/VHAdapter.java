@@ -1,6 +1,5 @@
 package com.bear.librv;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.database.Cursor;
 import android.util.Log;
@@ -21,9 +20,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@SuppressLint({"RestrictedApi"})
-@SuppressWarnings("unchecked")
-public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH> implements LifecycleEventObserver {
+@SuppressWarnings({"unchecked", "rawtypes", "BooleanMethodIsAlwaysInverted"})
+public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
+        implements LifecycleEventObserver {
     protected String TAG = RvLog.RV_LOG_TAG + "-" + getClass().getSimpleName();
     private static final int DATA_TYPE_LIMIT = 100;
     private LayoutInflater mInflater;
@@ -75,6 +74,9 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH> impl
                 mLifecycle.addObserver(vh);
             }
         }
+        if (vh == null) {
+            throw new RuntimeException("VHolder is null");
+        }
         return (VH) vh;
     }
 
@@ -114,18 +116,23 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH> impl
     public int getItemViewType(int position) {
         Object data = mDataManager.get(position);
         if (mOnGetDataType != null) {
-            int type = mOnGetDataType.getType(data, position);
-            if (type != -1) {
-                return mClzMap.get(type);
+            int dataType = mOnGetDataType.getType(data, position);
+            if (dataType != -1) {
+                return safeGetItemType(dataType, position);
             }
         }
         if (data instanceof Cursor) {
-            return mClzMap.get(Cursor.class.hashCode());
+            return safeGetItemType(Cursor.class.hashCode(), position);
         }
         if (mClzMap.containsKey(data.getClass().hashCode())) {
-            return mClzMap.get(data.getClass().hashCode());
+            return safeGetItemType(data.getClass().hashCode(), position);
         }
         return super.getItemViewType(position);
+    }
+
+    private int safeGetItemType(int dataType, int position) {
+        Integer val = mClzMap.get(dataType);
+        return val != null ? val : super.getItemViewType(position);
     }
 
     /**
@@ -221,7 +228,7 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH> impl
     }
 
     @Override
-    public void onStateChanged(LifecycleOwner source, Lifecycle.Event event) {
+    public void onStateChanged(@NonNull LifecycleOwner source, @NonNull Lifecycle.Event event) {
         if (event == Lifecycle.Event.ON_DESTROY) {
             source.getLifecycle().removeObserver(this);
             mInflater = null;
@@ -238,7 +245,7 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH> impl
     }
 
     public interface OnGetDataType {
-        int getType(Object obj, int pos);
+        int getType(Object data, int pos);
     }
 
     private OnGetDataType mOnGetDataType;

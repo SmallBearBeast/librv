@@ -12,7 +12,7 @@ import java.util.Map;
  * This class is used to handle specific add, remove, and update operation.
  * Note: Cursor is read-only.
  */
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"unchecked", "rawtypes", "BooleanMethodIsAlwaysInverted"})
 public class DataManager {
     private static final String TAG = RvLog.RV_LOG_TAG;
 

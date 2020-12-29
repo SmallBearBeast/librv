@@ -12,6 +12,7 @@ import androidx.lifecycle.LifecycleEventObserver;
 import androidx.lifecycle.LifecycleOwner;
 import androidx.recyclerview.widget.RecyclerView;
 
+@SuppressWarnings({"unchecked", "rawtypes"})
 public class VHolder<DATA> extends RecyclerView.ViewHolder implements LifecycleEventObserver, View.OnClickListener {
     protected String TAG = RvLog.RV_LOG_TAG + "-" + getClass().getSimpleName();
     private DATA mData;
@@ -116,7 +117,7 @@ public class VHolder<DATA> extends RecyclerView.ViewHolder implements LifecycleE
     }
 
     @Override
-    public void onStateChanged(LifecycleOwner source, Lifecycle.Event event) {
+    public void onStateChanged(@NonNull LifecycleOwner source, @NonNull Lifecycle.Event event) {
         if (event == Lifecycle.Event.ON_CREATE) {
             onCreate();
         } else if (event == Lifecycle.Event.ON_START) {
