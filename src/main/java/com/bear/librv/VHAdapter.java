@@ -28,9 +28,9 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
     private LayoutInflater mInflater;
     private RecyclerView mRecyclerView;
     private DataManager mDataManager;
-    private Map<Integer, Integer> mClzMap;
-    private SparseArray<VHBridge> mBridgeMap;
-    private int mIncrease = DATA_TYPE_LIMIT;
+    private Map<Integer, Integer> mDataWithItemTypeMap;
+    private SparseArray<VHBridge> mItemTypeWithBridgeMap;
+    private int mAutoIncreaseItemType = DATA_TYPE_LIMIT;
     private Context mContext; //通过外部传入好还是onAttachedToRecyclerView拿去
     private Lifecycle mLifecycle;
 
@@ -38,8 +38,8 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
         mDataManager = new DataManager();
         mDataManager.setAdapter(this);
         mLifecycle = lifecycle;
-        mClzMap = new HashMap<>();
-        mBridgeMap = new SparseArray<>();
+        mDataWithItemTypeMap = new HashMap<>();
+        mItemTypeWithBridgeMap = new SparseArray<>();
     }
 
     @Override
@@ -54,7 +54,7 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
             mInflater = LayoutInflater.from(parent.getContext());
         }
         VHolder vh = null;
-        VHBridge bridge = mBridgeMap.get(viewType);
+        VHBridge bridge = mItemTypeWithBridgeMap.get(viewType);
         if (bridge != null) {
             View view = bridge.itemView();
             if (view == null) {
@@ -124,14 +124,14 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
         if (data instanceof Cursor) {
             return safeGetItemType(Cursor.class.hashCode(), position);
         }
-        if (mClzMap.containsKey(data.getClass().hashCode())) {
+        if (mDataWithItemTypeMap.containsKey(data.getClass().hashCode())) {
             return safeGetItemType(data.getClass().hashCode(), position);
         }
         return super.getItemViewType(position);
     }
 
     private int safeGetItemType(int dataType, int position) {
-        Integer val = mClzMap.get(dataType);
+        Integer val = mDataWithItemTypeMap.get(dataType);
         return val != null ? val : super.getItemViewType(position);
     }
 
@@ -162,17 +162,17 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
             Log.w(TAG, "registerInternal: dataType is out of range");
             return;
         }
-        if (mClzMap.containsKey(dataType)) {
+        if (mDataWithItemTypeMap.containsKey(dataType)) {
             return;
         }
         bridge.onInitAdapterAndManager(this, mDataManager);
         if (mRecyclerView != null && mContext != null) {
             bridge.onInitRvAndContext(mRecyclerView, mContext);
         }
-        mIncrease++;
-        bridge.mType = mIncrease;
-        mBridgeMap.put(mIncrease, bridge);
-        mClzMap.put(dataType, mIncrease);
+        mAutoIncreaseItemType++;
+        bridge.mType = mAutoIncreaseItemType;
+        mItemTypeWithBridgeMap.put(mAutoIncreaseItemType, bridge);
+        mDataWithItemTypeMap.put(dataType, mAutoIncreaseItemType);
     }
 
     public boolean isRegister(Object obj) {
@@ -182,13 +182,13 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
         if (mOnGetDataType != null) {
             int type = mOnGetDataType.getType(obj, -1);
             if (type != -1) {
-                return mClzMap.containsKey(type);
+                return mDataWithItemTypeMap.containsKey(type);
             }
         }
         if (obj instanceof Cursor) {
-            return mClzMap.containsKey(Cursor.class.hashCode());
+            return mDataWithItemTypeMap.containsKey(Cursor.class.hashCode());
         }
-        return mClzMap.containsKey(obj.getClass().hashCode());
+        return mDataWithItemTypeMap.containsKey(obj.getClass().hashCode());
     }
 
     public DataManager getDataManager() {
@@ -203,8 +203,8 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
         if (mLifecycle != null) {
             mLifecycle.addObserver(this);
         }
-        for (int i = 0, size = mBridgeMap.size(); i < size; i++) {
-            VHBridge bridge = mBridgeMap.valueAt(i);
+        for (int i = 0, size = mItemTypeWithBridgeMap.size(); i < size; i++) {
+            VHBridge bridge = mItemTypeWithBridgeMap.valueAt(i);
             bridge.onInitRvAndContext(mRecyclerView, mContext);
         }
         setUpGridSpanSize();
@@ -216,9 +216,9 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
             gridLayoutManager.setSpanSizeLookup(new GridLayoutManager.SpanSizeLookup() {
                 public int getSpanSize(int position) {
                     int type = getItemViewType(position);
-                    for (int i = 0, size = mBridgeMap.size(); i < size; i++) {
-                        if (mBridgeMap.valueAt(i).mType == type) {
-                            return mBridgeMap.valueAt(i).getSpanSize(mRecyclerView);
+                    for (int i = 0, size = mItemTypeWithBridgeMap.size(); i < size; i++) {
+                        if (mItemTypeWithBridgeMap.valueAt(i).mType == type) {
+                            return mItemTypeWithBridgeMap.valueAt(i).getSpanSize(mRecyclerView);
                         }
                     }
                     return 1;
@@ -235,10 +235,10 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
             mRecyclerView = null;
             mDataManager.clear();
             mDataManager = null;
-            mClzMap.clear();
-            mClzMap = null;
-            mBridgeMap.clear();
-            mBridgeMap = null;
+            mDataWithItemTypeMap.clear();
+            mDataWithItemTypeMap = null;
+            mItemTypeWithBridgeMap.clear();
+            mItemTypeWithBridgeMap = null;
             mContext = null;
             mLifecycle = null;
         }
