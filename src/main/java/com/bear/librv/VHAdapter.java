@@ -25,6 +25,7 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
         implements LifecycleEventObserver {
     protected String TAG = RvLog.RV_LOG_TAG + "-" + getClass().getSimpleName();
     private static final int DATA_TYPE_LIMIT = 100;
+    public static final int DATA_NO_TYPE = -1;
     private LayoutInflater mInflater;
     private RecyclerView mRecyclerView;
     private DataManager mDataManager;
@@ -33,6 +34,7 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
     private int mAutoIncreaseItemType = DATA_TYPE_LIMIT;
     private Context mContext; //通过外部传入好还是onAttachedToRecyclerView拿去
     private Lifecycle mLifecycle;
+    private OnDataTypeCreator mOnDataTypeCreator;
 
     public VHAdapter(Lifecycle lifecycle) {
         mDataManager = new DataManager();
@@ -115,11 +117,14 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
     @Override
     public int getItemViewType(int position) {
         Object data = mDataManager.get(position);
-        if (mOnGetDataType != null) {
-            int dataType = mOnGetDataType.getType(data, position);
-            if (dataType != -1) {
+        if (mOnDataTypeCreator != null) {
+            int dataType = mOnDataTypeCreator.createDataType(data, position);
+            if (dataType != DATA_NO_TYPE) {
                 return safeGetItemType(dataType, position);
             }
+        }
+        if (data instanceof CustomData) {
+            return safeGetItemType(((CustomData)data).mType, position);
         }
         if (data instanceof Cursor) {
             return safeGetItemType(Cursor.class.hashCode(), position);
@@ -149,7 +154,18 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
     }
 
     /**
-     * This method should be used in conjunction with the {@link OnGetDataType}
+     * register bridge with many CustomData
+     */
+    public void register(VHBridge bridge, CustomData... customDatas) {
+        for (CustomData customData : customDatas) {
+            if (customData == null) {
+                continue;
+            }
+            registerInternal(bridge, customData.mType, true);
+        }
+    }
+    /**
+     * This method should be used in conjunction with the {@link OnDataTypeCreator}
      * @param bridge The VHBridge to be registered
      * @param dataType DataType definition is less than 100
      */
@@ -175,20 +191,23 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
         mDataWithItemTypeMap.put(dataType, mAutoIncreaseItemType);
     }
 
-    public boolean isRegister(Object obj) {
-        if (obj == null) {
+    public boolean isRegister(Object data) {
+        if (data == null) {
             return false;
         }
-        if (mOnGetDataType != null) {
-            int type = mOnGetDataType.getType(obj, -1);
-            if (type != -1) {
+        if (mOnDataTypeCreator != null) {
+            int type = mOnDataTypeCreator.createDataType(data, DATA_NO_TYPE);
+            if (type != DATA_NO_TYPE) {
                 return mDataWithItemTypeMap.containsKey(type);
             }
         }
-        if (obj instanceof Cursor) {
+        if (data instanceof CustomData) {
+            return mDataWithItemTypeMap.containsKey(((CustomData)data).mType);
+        }
+        if (data instanceof Cursor) {
             return mDataWithItemTypeMap.containsKey(Cursor.class.hashCode());
         }
-        return mDataWithItemTypeMap.containsKey(obj.getClass().hashCode());
+        return mDataWithItemTypeMap.containsKey(data.getClass().hashCode());
     }
 
     public DataManager getDataManager() {
@@ -244,13 +263,11 @@ public class VHAdapter<VH extends VHolder> extends RecyclerView.Adapter<VH>
         }
     }
 
-    public interface OnGetDataType {
-        int getType(Object data, int pos);
+    public interface OnDataTypeCreator {
+        int createDataType(Object data, int pos);
     }
 
-    private OnGetDataType mOnGetDataType;
-
-    public void setOnGetDataType(OnGetDataType onGetDataType) {
-        mOnGetDataType = onGetDataType;
+    public void setOnDataTypeCreator(OnDataTypeCreator onDataTypeCreator) {
+        mOnDataTypeCreator = onDataTypeCreator;
     }
 }
