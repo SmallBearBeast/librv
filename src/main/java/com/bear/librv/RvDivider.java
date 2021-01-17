@@ -16,39 +16,46 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager;
 // 插入时候分割线不会移动，会有视觉问题，最好是分割线是透明区域，由background来决定颜色。
 // 插入删除由于每个itemview范围不一致，导致起始点动画突变，基本无解。建议不要有动画。
 public class RvDivider extends RecyclerView.ItemDecoration {
-    private RecyclerView.LayoutManager mLayoutManager;
-    private int mOrientation;
     private int mColor;
-    private Drawable mDrawable;
+    private int mVerticalDividerWidth;
+    private int mHorizontalDividerWidth;
+    private int mOrientation;
     private Paint mPaint;
-    private int mDividerWidth;
+    private Drawable mDrawable;
+    private RecyclerView.LayoutManager mLayoutManager;
+
+    public RvDivider(RecyclerView.LayoutManager layoutManager, int dividerWidth){
+        this(layoutManager, dividerWidth, dividerWidth, 0, null);
+    }
 
     public RvDivider(LinearLayoutManager layoutManager, int dividerWidth, int color){
-        this((RecyclerView.LayoutManager)layoutManager, dividerWidth, color, null);
+        this(layoutManager, dividerWidth, dividerWidth, color, null);
     }
 
     public RvDivider(LinearLayoutManager layoutManager, int dividerWidth, Drawable drawable){
-        this((RecyclerView.LayoutManager)layoutManager, dividerWidth, 0, drawable);
+        this(layoutManager, dividerWidth, dividerWidth, 0, drawable);
     }
 
-
-    public RvDivider(GridLayoutManager layoutManager, int dividerWidth){
-        this((RecyclerView.LayoutManager)layoutManager, dividerWidth, 0, null);
+    public RvDivider(GridLayoutManager layoutManager, int verticalDividerWidth, int horizontalDividerWidth){
+        this(layoutManager, verticalDividerWidth, horizontalDividerWidth, 0, null);
     }
 
-    public RvDivider(StaggeredGridLayoutManager layoutManager, int dividerWidth){
-        this(layoutManager, dividerWidth, 0, null);
+    public RvDivider(StaggeredGridLayoutManager layoutManager, int verticalDividerWidth, int horizontalDividerWidth){
+        this(layoutManager, verticalDividerWidth, horizontalDividerWidth, 0, null);
     }
 
-    private RvDivider(RecyclerView.LayoutManager layoutManager, int dividerWidth, int color, Drawable drawable){
+    private RvDivider(RecyclerView.LayoutManager layoutManager, int verticalDividerWidth, int horizontalDividerWidth, int color, Drawable drawable){
         mLayoutManager = layoutManager;
         mOrientation = getManagerOrientation();
-        mDividerWidth = dividerWidth;
-        mColor = color;
-        mDrawable = drawable;
-        //Only the LinearLayoutManager uses color and dividerWidth.
-        if(mLayoutManager instanceof LinearLayoutManager) {
+        mVerticalDividerWidth = verticalDividerWidth;
+        mHorizontalDividerWidth = horizontalDividerWidth;
+        // Only the LinearLayoutManager supports color and drawable.
+        if (isLinearLayoutManager(mLayoutManager)) {
+            mColor = color;
+            mDrawable = drawable;
             initPaint();
+        } else if (color != 0 || drawable != null){
+            throw new RuntimeException("Other LayoutManager(GridLayoutManager or StaggeredGridLayoutManager) can not support color or drawable");
         }
     }
 
@@ -59,11 +66,11 @@ public class RvDivider extends RecyclerView.ItemDecoration {
         mPaint.setColor(mColor);
     }
 
-    //Note that the GridLayoutManager is a subclass of LinearLayoutManager.
-    private int getManagerOrientation(){
-        if(mLayoutManager instanceof LinearLayoutManager){
+    // Note that the GridLayoutManager is a subclass of LinearLayoutManager.
+    private int getManagerOrientation() {
+        if (mLayoutManager instanceof LinearLayoutManager) {
             return ((LinearLayoutManager) mLayoutManager).getOrientation();
-        }else if(mLayoutManager instanceof StaggeredGridLayoutManager){
+        } else if (mLayoutManager instanceof StaggeredGridLayoutManager) {
             return ((StaggeredGridLayoutManager) mLayoutManager).getOrientation();
         }
         return RecyclerView.VERTICAL;
@@ -71,25 +78,26 @@ public class RvDivider extends RecyclerView.ItemDecoration {
 
     @Override
     public void onDraw(@NonNull Canvas c, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
-        if(mLayoutManager instanceof LinearLayoutManager){
-            if(mOrientation == RecyclerView.VERTICAL) {
+        if (isLinearLayoutManager(mLayoutManager)) {
+            int dividerWidth = mVerticalDividerWidth != 0 ? mVerticalDividerWidth : mHorizontalDividerWidth;
+            if (mOrientation == RecyclerView.VERTICAL) {
                 for (int i = 1, count = parent.getChildCount(); i < count; i++) {
                     View child = parent.getChildAt(i);
-                    if(mDrawable != null){
-                        mDrawable.setBounds(child.getLeft(), child.getTop() - mDividerWidth, child.getRight(), child.getTop());
+                    if (mDrawable != null) {
+                        mDrawable.setBounds(child.getLeft(), child.getTop() - dividerWidth, child.getRight(), child.getTop());
                         mDrawable.draw(c);
-                    }else {
-                        c.drawRect(child.getLeft(), child.getTop() - mDividerWidth, child.getRight(), child.getTop(), mPaint);
+                    } else {
+                        c.drawRect(child.getLeft(), child.getTop() - dividerWidth, child.getRight(), child.getTop(), mPaint);
                     }
                 }
-            }else if(mOrientation == RecyclerView.HORIZONTAL){
+            } else if (mOrientation == RecyclerView.HORIZONTAL) {
                 for (int i = 1, count = parent.getChildCount(); i < count; i++) {
                     View child = parent.getChildAt(i);
                     if(mDrawable != null){
-                        mDrawable.setBounds(child.getLeft(), child.getTop() - mDividerWidth, child.getRight(), child.getTop());
+                        mDrawable.setBounds(child.getLeft(), child.getTop() - dividerWidth, child.getRight(), child.getTop());
                         mDrawable.draw(c);
                     }else {
-                        c.drawRect(child.getLeft() - mDividerWidth, child.getTop(), child.getLeft(), child.getBottom(), mPaint);
+                        c.drawRect(child.getLeft() - dividerWidth, child.getTop(), child.getLeft(), child.getBottom(), mPaint);
                     }
                 }
             }
@@ -104,47 +112,48 @@ public class RvDivider extends RecyclerView.ItemDecoration {
             int spanCount = manager.getSpanCount();
             int spanIndex = manager.getSpanSizeLookup().getSpanIndex(pos, spanCount);
             int spanSize = manager.getSpanSizeLookup().getSpanSize(pos);
-            int dividerBase = mDividerWidth / spanCount;
-            int dividerReal = dividerBase * spanCount;
             if(mOrientation == RecyclerView.VERTICAL) {
+                int dividerBase = mVerticalDividerWidth / spanCount;
                 outRect.left = dividerBase * spanIndex;
-                outRect.top = isTop(pos, manager) ? 0 : dividerReal;
+                outRect.top = isStartInGridLayoutManager(pos, manager) ? 0 : mHorizontalDividerWidth;
                 outRect.right = (spanIndex + spanSize) == spanCount ? 0 : dividerBase * (spanCount - spanIndex - 1);
             }else if(mOrientation == RecyclerView.HORIZONTAL){
+                int dividerBase = mHorizontalDividerWidth / spanCount;
                 outRect.top = dividerBase * spanIndex;
-                outRect.left = isTop(pos, manager) ? 0 : dividerReal;
+                outRect.left = isStartInGridLayoutManager(pos, manager) ? 0 : mVerticalDividerWidth;
                 outRect.bottom = (spanIndex + spanSize) == spanCount ? 0 : spanIndex + dividerBase * (spanCount - spanIndex - 1);
             }
-        }else if(mLayoutManager instanceof LinearLayoutManager){
+        } else if (mLayoutManager instanceof LinearLayoutManager) {
+            int dividerWidth = mVerticalDividerWidth != 0 ? mVerticalDividerWidth : mHorizontalDividerWidth;
             int pos = parent.getChildAdapterPosition(view);
-            if(mOrientation == RecyclerView.VERTICAL){
-                outRect.set(0, pos == 0 ? 0 : mDividerWidth, 0, 0);
-            }else if(mOrientation == RecyclerView.HORIZONTAL){
-                outRect.set(pos == 0 ? 0 : mDividerWidth, 0, 0, 0);
+            if (mOrientation == RecyclerView.VERTICAL) {
+                outRect.set(0, pos == 0 ? 0 : dividerWidth, 0, 0);
+            } else if (mOrientation == RecyclerView.HORIZONTAL) {
+                outRect.set(pos == 0 ? 0 : dividerWidth, 0, 0, 0);
             }
-        }else if(mLayoutManager instanceof StaggeredGridLayoutManager){
+        } else if (mLayoutManager instanceof StaggeredGridLayoutManager) {
             StaggeredGridLayoutManager manager = (StaggeredGridLayoutManager) mLayoutManager;
             int pos = parent.getChildAdapterPosition(view);
             int spanCount = manager.getSpanCount();
-            int dividerBase = mDividerWidth / spanCount;
-            int dividerReal = dividerBase * spanCount;
             ViewGroup.LayoutParams lp = view.getLayoutParams();
             if (lp instanceof StaggeredGridLayoutManager.LayoutParams) {
                 int spanIndex = ((StaggeredGridLayoutManager.LayoutParams) lp).getSpanIndex();
                 if(mOrientation == RecyclerView.VERTICAL){
+                    int dividerBase = mVerticalDividerWidth / spanCount;
                     outRect.left = dividerBase * spanIndex;
-                    outRect.top = (pos < spanCount ? 0 : dividerReal);
+                    outRect.top = (pos < spanCount ? 0 : mHorizontalDividerWidth);
                     outRect.right = dividerBase * (spanCount - spanIndex - 1);
                 }else if(mOrientation == RecyclerView.HORIZONTAL){
+                    int dividerBase = mHorizontalDividerWidth / spanCount;
                     outRect.top = dividerBase * spanIndex;
-                    outRect.left = (pos < spanCount ? 0 : dividerReal);
+                    outRect.left = (pos < spanCount ? 0 : mVerticalDividerWidth);
                     outRect.bottom = dividerBase * (spanCount - spanIndex - 1);
                 }
             }
         }
     }
 
-    private boolean isTop(int pos, GridLayoutManager manager) {
+    private boolean isStartInGridLayoutManager(int pos, GridLayoutManager manager) {
         int spanCount = manager.getSpanCount();
         if (pos >= spanCount) {
             return false;
@@ -158,5 +167,9 @@ public class RvDivider extends RecyclerView.ItemDecoration {
             }
         }
         return true;
+    }
+
+    private boolean isLinearLayoutManager(RecyclerView.LayoutManager layoutManager) {
+        return layoutManager instanceof LinearLayoutManager && !(layoutManager instanceof GridLayoutManager);
     }
 }
