@@ -23,6 +23,7 @@ import androidx.recyclerview.widget.StaggeredGridLayoutManager;
  * You can set up the vertical or horizontal divider width if you want.
  * Note: The only LinearLayoutManager supports color and drawable.
  */
+// TODO: 2022/3/20 The width is not correct in GridLayoutManager
 public class RvDivider extends RecyclerView.ItemDecoration {
     private int mColor = Color.TRANSPARENT;
     private int mVerticalDividerWidth;
